@@ -1,16 +1,16 @@
 package routers
 
 import (
-	"courier-service/internal/handlers"
-
 	"github.com/gin-gonic/gin"
+
+	"courier-service/internal/handlers"
 )
 
-const relativePath = "/api/v1"
+const pathPrefix = "/api/v1"
 
 func GetAppRoutes(router *gin.Engine) {
 
-	api := router.Group(relativePath)
+	api := router.Group(pathPrefix)
 	{
 		//	Auth routes
 		// auth := api.Group("/auth")
