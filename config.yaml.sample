@@ -1,0 +1,8 @@
+DEBUG: true
+ENV: "DEV"
+DB:
+  HOST: ""
+  PORT: ""
+  NAME: ""
+  USERNAME: ""
+  PASSWORD: ""
