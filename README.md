@@ -24,6 +24,7 @@ git clone https://github.com/RashedEmon/courier-service.git
 .env file hold database config which will loaded by docker-compose and set environment variable.
 In `app_config.yaml` file, set DB:HOST `db`(docker container can communicate via service name using internal routing)
 ```bash
+cd courier-service
 cp .env.sample .env
 cp app_config.yaml.sample app_config.yaml
 ```
