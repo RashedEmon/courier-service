@@ -1,6 +1,6 @@
 # Project courier-service
 
-This is a courier management system API application. Following are the features:
+This is a courier management system API application. Following features are currently implemented:
 - Create Order.
 - See Order List
 - Cancelled order.
@@ -21,21 +21,23 @@ This is a courier management system API application. Following are the features:
 git clone https://github.com/RashedEmon/courier-service.git
 ```
 - Run following command to create config files and set appropriate values.
+.env file hold database config which will loaded by docker-compose and set environment variable.
+In `app_config.yaml` file, set DB:HOST `db`(docker container can communicate via service name using internal routing)
 ```bash
 cp .env.sample .env
-cp .config.yaml.sample config.yaml
+cp app_config.yaml.sample app_config.yaml
 ```
-- Run following command to download dependencies. (development)
+- Run following command to download dependencies. (`development`)
 ```bash
 go mod tidy
 ```
-- Run Server in machine. (development)
+- Run Server in machine. (`development`)
 ```bash
 go run cmd/api/main.py
 ```
-- To run docker container. Run the following command. (Production)
+- To run docker container. Run the following command. (`Production`)
 ```bash
-docker-compose up -d
+docker-compose up --build -d
 ```
 
 ## API Documentation
