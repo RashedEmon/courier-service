@@ -1,26 +1,33 @@
 package main
 
 import (
-	"fmt"
+	"log"
+
 	"github.com/gin-gonic/gin"
 
 	"courier-service/config"
-	"courier-service/internal/routers"
 	"courier-service/internal/database"
+	"courier-service/internal/models"
+	"courier-service/internal/routers"
 )
 
-
-func main(){
+func main() {
 	r := gin.Default()
 
 	// Load config
 	config.LoadConfig()
 
-	//initialize database connection
-	database.InitializeDB()
+	// Initialize database connection
+	if err := database.InitializeDB(); err != nil {
+		log.Fatal("Fatal error: Database intialization failed")
+	}
 
-	fmt.Println(config.ConfigInstance)
-	//Load routes
+	// Apply migrations
+	if err := database.DB.AutoMigrate(&models.User{}, &models.DeliveryOrder{}); err != nil {
+		log.Fatal("Fatal error: Migration failed")
+	}
+
+	// Load routes
 	routers.GetAppRoutes(r)
 
 	r.Run(":8080")

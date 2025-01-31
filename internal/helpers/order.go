@@ -21,7 +21,7 @@ type ValidationError struct {
 	Errors  map[string][]string `json:"errors"`
 }
 
-func ValidateRequestData(order *models.DeliveryOrder) error {
+func ValidateRequestData(order *models.DeliveryOrderRequest) error {
 	errors := make(map[string][]string)
 
 	matched := regexp.MustCompile(`^(01)[3-9]{1}[0-9]{8}$`).MatchString(order.RecipientPhone)
@@ -76,8 +76,6 @@ func FormatValidationError(err error) map[string]string {
 
 func CreateConsignmentId(deliveryType int) string {
 	currentDate := time.Now()
-
-	// Format the current date to DDMMYY (with the year as the last two digits)
 	formattedDate := currentDate.Format("020106")
 	return constant.DELIVERY_TYPE_MAPPING[deliveryType] + formattedDate + utils.GenerateRandomString(6)
 }
@@ -114,15 +112,76 @@ func CalculateDeliveryFee(cityID int, weightKg float64) float64 {
 	return (basePrice + 10) + extraCharge
 }
 
-func StoreOrder(order *models.DeliveryOrder) error {
-	order.ConsignmentID = CreateConsignmentId(order.DeliveryType)
-	order.DeliveryFee = CalculateDeliveryFee(order.RecipientCity, order.ItemWeight)
-	order.CodFee = order.AmountToCollect * 0.01
+func StoreOrder(orderReq *models.DeliveryOrderRequest) (models.DeliveryOrder, error) {
+
+	order := models.DeliveryOrder{}
+
+	order.ConsignmentID = CreateConsignmentId(orderReq.DeliveryType)
+	order.StoreID = orderReq.StoreID
+	order.MerchantOrderID = orderReq.MerchantOrderID
+	order.RecipientName = orderReq.RecipientName
+	order.RecipientPhone = orderReq.RecipientPhone
+	order.RecipientAddress = orderReq.RecipientAddress
+	order.RecipientCity = orderReq.RecipientCity
+	order.RecipientZone = orderReq.RecipientZone
+	order.RecipientArea = orderReq.RecipientArea
+	order.DeliveryType = orderReq.DeliveryType
+	order.ItemType = orderReq.ItemType
+	order.SpecialInstruction = orderReq.SpecialInstruction
+	order.ItemQuantity = orderReq.ItemQuantity
+	order.ItemWeight = orderReq.ItemWeight
+	order.AmountToCollect = orderReq.AmountToCollect
+	order.ItemDescription = orderReq.ItemDescription
+	order.DeliveryFee = CalculateDeliveryFee(orderReq.RecipientCity, orderReq.ItemWeight)
+	order.CodFee = orderReq.AmountToCollect * 0.01
+	order.Status = models.StatusPending
+	order.Discount = 0
+	order.IsArchived = false
+
+	// user := models.User{
+	// 	Email:    "rashed@gmail.com",
+	// 	Password: "jkn786567",
+	// }
+
+	// if err := database.DB.Create(&user).Error; err!=nil {
+	// 	return err
+	// }
+
+	order.UserID = nil
 
 	// perform database operation
-	if err := database.DB.Create(order).Error; err != nil {
-		fmt.Println("failed to isnert row")
-		return err
+	if err := database.DB.Create(&order).Error; err != nil {
+		fmt.Println("failed to insert row")
+		return models.DeliveryOrder{}, err
 	}
-	return nil
+	return order, nil
+}
+
+// get list of orders and total orders
+func GetOrders(transferStatus string, archive string, limit int, offset int) ([]models.DeliveryOrder, int, error) {
+	var orders []models.DeliveryOrder
+	var total int64
+
+	// Query builder
+	query := database.DB.Model(&models.DeliveryOrder{})
+
+	// Apply filters
+	if transferStatus != "" {
+		query = query.Where("status = ?", transferStatus)
+	}
+	if archive != "" {
+		query = query.Where("archived = ?", archive)
+	}
+
+	// Count total records
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Fetch paginated results
+	if err := query.Offset(offset).Limit(limit).Find(&orders).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return orders, int(total), nil
 }

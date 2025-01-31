@@ -10,7 +10,7 @@ import (
 )
 
 func CreateOrder(c *gin.Context) {
-	var order models.DeliveryOrder
+	var order models.DeliveryOrderRequest
 
 	if err := c.ShouldBindJSON(&order); err != nil {
 		validationErrors := helpers.FormatValidationError(err)
@@ -41,9 +41,11 @@ func CreateOrder(c *gin.Context) {
 		return
 	}
 
-	if err := helpers.StoreOrder(&order); err != nil {
+	createdOrder, err := helpers.StoreOrder(&order)
+
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "faield to save data",
+			"message": "failed to save data",
 			"type":    "error",
 			"code":    http.StatusInternalServerError,
 		})
@@ -55,17 +57,42 @@ func CreateOrder(c *gin.Context) {
 		"type":    "success",
 		"code":    200,
 		"data": gin.H{
-			"consignment_id":    order.ConsignmentID,
-			"merchant_order_id": order.MerchantOrderID,
-			"order_status":      "Pending",
-			"delivery_fee":      order.DeliveryFee,
+			"consignment_id":    createdOrder.ConsignmentID,
+			"merchant_order_id": createdOrder.MerchantOrderID,
+			"order_status":      createdOrder.Status,
+			"delivery_fee":      createdOrder.DeliveryFee,
 		},
 	})
 
 }
 
 func GetOrders(c *gin.Context) {
+	//transfer_status=1&archive=0&limit=10&page=2'
+	transferStatus := c.DefaultQuery("transfer_status", "1")
+	archive := c.DefaultQuery("archive", "0")
+	limit := c.DefaultQuery("limit", "10")
+	page := c.DefaultQuery("page", "1")
 
+	// function call to get total number of orders
+	count := helpers.TotalRowsCount(nil, 0)
+
+	
+
+	orderList := []map[string]string{}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Orders successfully fetched.",
+		"type":    "success",
+		"code":    200,
+		"data": gin.H{
+			"data":          orderList,
+			"total":         4,
+			"current_page":  1,
+			"per_page":      1,
+			"total_in_page": 1,
+			"last_page":     4,
+		},
+	})
 }
 
 func CancelOrder(c *gin.Context) {

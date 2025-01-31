@@ -10,7 +10,7 @@ import (
 
 var DB *gorm.DB
 
-func InitializeDB() {
+func InitializeDB() error {
 	db := config.ConfigInstance.DB
 
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable timezone=Asia/Dhaka", db.Host, db.Username, db.Password, db.Name, db.Port)
@@ -19,6 +19,9 @@ func InitializeDB() {
 
 	if err != nil {
 		fmt.Println("Connect to database failed")
+		return err
 	}
 	DB = dbConn
+
+	return nil
 }
