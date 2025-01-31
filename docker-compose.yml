@@ -16,18 +16,18 @@ services:
     image: postgres:16
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U courier_user"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
     environment:
-      POSTGRES_DB: courier
-      POSTGRES_USER: courier_user
-      POSTGRES_PASSWORD: TAM9bGksCMUFvWk
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
-      - database_volume:/var/lib/postgresql/data
+      - db_vol:/var/lib/postgresql/data
 
 volumes:
-  database_volume:
+  db_vol:
