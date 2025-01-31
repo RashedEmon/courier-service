@@ -6,3 +6,4 @@ DB:
   NAME: ""
   USERNAME: ""
   PASSWORD: ""
+JWTSECRETKEY: ""

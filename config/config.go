@@ -42,7 +42,7 @@ func LoadConfig() *Config {
 	projectRoot := getProjectRoot()
 
 	once.Do(func() {
-		viper.SetConfigName("config")
+		viper.SetConfigName("app_config")
 		viper.SetConfigType("yaml")
 		viper.AddConfigPath(projectRoot)
 
