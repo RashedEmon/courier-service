@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -41,7 +42,20 @@ func CreateOrder(c *gin.Context) {
 		return
 	}
 
-	createdOrder, err := helpers.StoreOrder(&order)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Unauthorized",
+			"type":  "error",
+			"code":  401,
+		},
+		)
+		return
+	}
+
+	userIDInt, _ := userID.(uint)
+
+	createdOrder, err := helpers.StoreOrder(&order, userIDInt)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -67,34 +81,96 @@ func CreateOrder(c *gin.Context) {
 }
 
 func GetOrders(c *gin.Context) {
-	//transfer_status=1&archive=0&limit=10&page=2'
 	transferStatus := c.DefaultQuery("transfer_status", "1")
 	archive := c.DefaultQuery("archive", "0")
 	limit := c.DefaultQuery("limit", "10")
 	page := c.DefaultQuery("page", "1")
 
-	// function call to get total number of orders
-	count := helpers.TotalRowsCount(nil, 0)
+	userID, exists := c.Get("user_id")
 
-	
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Unauthorized",
+			"type":  "error",
+			"code":  401,
+		},
+		)
+		return
+	}
+	userIDInt, _ := userID.(uint)
 
-	orderList := []map[string]string{}
+	limitInt, err := strconv.Atoi(limit)
+	if err != nil || limitInt <= 0 {
+		limitInt = 10 // default
+	}
+
+	pageInt, err := strconv.Atoi(page)
+	if err != nil || pageInt <= 0 {
+		pageInt = 1 // default
+	}
+
+	offset := (pageInt - 1) * limitInt
+
+	if archive != "0" {
+		archive = "true"
+	} else {
+		archive = "false"
+	}
+	// function call to get paginated orders
+	orderList, total, err := helpers.GetOrders(transferStatus, archive, limitInt, offset, userIDInt)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Orders fetched failed",
+			"type":    "failed",
+			"code":    500,
+		})
+		return
+	}
+
+	currentPage, lastPage := helpers.CalculatePagination(total, offset, limitInt)
+
+	order_data := helpers.PrepareOrderResponse(&orderList)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Orders successfully fetched.",
 		"type":    "success",
 		"code":    200,
 		"data": gin.H{
-			"data":          orderList,
-			"total":         4,
-			"current_page":  1,
-			"per_page":      1,
-			"total_in_page": 1,
-			"last_page":     4,
+			"data":          order_data,
+			"total":         total,
+			"current_page":  currentPage,
+			"per_page":      limitInt,
+			"total_in_page": len(orderList),
+			"last_page":     lastPage,
 		},
 	})
 }
 
 func CancelOrder(c *gin.Context) {
+	consignmentID := c.Param("consignment_id")
+
+	userID, exists := c.Get("user_id")
+
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Unauthorized",
+			"type":  "error",
+			"code":  401,
+		},
+		)
+		return
+	}
+
+	userIDInt, _ := userID.(uint)
+
+	message, _ := helpers.CancelOder(consignmentID, userIDInt)
+
+	c.JSON(message.Code, gin.H{
+		"message": message.Message,
+		"type":    message.Type,
+		"code":    message.Code,
+	},
+	)
 
 }

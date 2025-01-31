@@ -5,12 +5,15 @@ import (
 	"courier-service/internal/database"
 	"courier-service/internal/models"
 	"courier-service/internal/utils"
+	"errors"
 	"fmt"
 	"math"
 	"regexp"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"gorm.io/gorm"
 )
 
 type ValidationError struct {
@@ -112,7 +115,7 @@ func CalculateDeliveryFee(cityID int, weightKg float64) float64 {
 	return (basePrice + 10) + extraCharge
 }
 
-func StoreOrder(orderReq *models.DeliveryOrderRequest) (models.DeliveryOrder, error) {
+func StoreOrder(orderReq *models.DeliveryOrderRequest, userId uint) (models.DeliveryOrder, error) {
 
 	order := models.DeliveryOrder{}
 
@@ -134,20 +137,10 @@ func StoreOrder(orderReq *models.DeliveryOrderRequest) (models.DeliveryOrder, er
 	order.ItemDescription = orderReq.ItemDescription
 	order.DeliveryFee = CalculateDeliveryFee(orderReq.RecipientCity, orderReq.ItemWeight)
 	order.CodFee = orderReq.AmountToCollect * 0.01
-	order.Status = models.StatusPending
+	order.Status = constant.StatusPending
 	order.Discount = 0
+	order.UserID = &userId
 	order.IsArchived = false
-
-	// user := models.User{
-	// 	Email:    "rashed@gmail.com",
-	// 	Password: "jkn786567",
-	// }
-
-	// if err := database.DB.Create(&user).Error; err!=nil {
-	// 	return err
-	// }
-
-	order.UserID = nil
 
 	// perform database operation
 	if err := database.DB.Create(&order).Error; err != nil {
@@ -158,22 +151,26 @@ func StoreOrder(orderReq *models.DeliveryOrderRequest) (models.DeliveryOrder, er
 }
 
 // get list of orders and total orders
-func GetOrders(transferStatus string, archive string, limit int, offset int) ([]models.DeliveryOrder, int, error) {
+func GetOrders(transferStatus string, archive string, limit int, offset int, userID uint) ([]models.DeliveryOrder, int, error) {
 	var orders []models.DeliveryOrder
 	var total int64
 
-	// Query builder
+	// initial query
 	query := database.DB.Model(&models.DeliveryOrder{})
 
 	// Apply filters
+	transferStatus = constant.DELIVERY_STATUS_MAPPING[transferStatus]
 	if transferStatus != "" {
 		query = query.Where("status = ?", transferStatus)
 	}
+
 	if archive != "" {
-		query = query.Where("archived = ?", archive)
+		query = query.Where("is_archived = ?", archive)
 	}
 
-	// Count total records
+	query = query.Where("user_id = ?", userID)
+
+	// Get total count of records
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
@@ -184,4 +181,110 @@ func GetOrders(transferStatus string, archive string, limit int, offset int) ([]
 	}
 
 	return orders, int(total), nil
+}
+
+func CalculatePagination(totalRecords, offset, limit int) (int, int) {
+	if limit <= 0 {
+		return 1, 1
+	}
+
+	currentPage := (offset / limit) + 1
+	lastPage := (totalRecords + limit - 1) / limit
+
+	return currentPage, lastPage
+}
+
+// PrepareOrderResponse formats a slice of DeliveryOrder objects into a slice of maps
+func PrepareOrderResponse(orders *[]models.DeliveryOrder) []map[string]interface{} {
+	var response []map[string]interface{}
+
+	for _, order := range *orders {
+		resp := gin.H{
+			"order_consignment_id": order.ConsignmentID,
+			"order_created_at":     order.CreatedAt.Format("2006-01-02 15:04:05"), // Formatting time
+			"order_description":    order.ItemDescription,
+			"merchant_order_id":    order.MerchantOrderID,
+			"recipient_name":       order.RecipientName,
+			"recipient_address":    order.RecipientAddress,
+			"recipient_phone":      order.RecipientPhone,
+			"order_amount":         order.AmountToCollect,
+			"total_fee":            order.DeliveryFee + order.CodFee,
+			"instruction":          order.SpecialInstruction,
+			"order_type_id":        order.DeliveryType,
+			"cod_fee":              order.CodFee,
+			"promo_discount":       0,
+			"discount":             order.Discount,
+			"delivery_fee":         order.DeliveryFee,
+			"order_status":         order.Status,
+			"order_type":           "Delivery",
+			"item_type":            constant.ITEM_TYPE_MAPPING[order.ItemType],
+		}
+		response = append(response, resp)
+	}
+
+	return response
+}
+
+func GetOrderByID(ConsignmentID string, userId uint) (*models.DeliveryOrder, error) {
+	var order models.DeliveryOrder
+	tx := database.DB.Where("consignment_id = ? and user_id = ?", ConsignmentID, userId).First(&order)
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+	return &order, nil
+}
+
+func UpdateOrderStatus(order *models.DeliveryOrder) error {
+	tx := database.DB.Save(order)
+	if tx.Error != nil {
+		return tx.Error
+	}
+	return nil
+}
+
+type Message struct {
+	Message string
+	Type    string
+	Code    int
+}
+
+// cancel order if order is in cancelable state
+func CancelOder(consignmentID string, userId uint) (*Message, error) {
+	order, err := GetOrderByID(consignmentID, userId)
+
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return &Message{
+				Message: "No data found",
+				Type:    "error",
+				Code:    404,
+			}, err
+		} else {
+			return &Message{
+				Message: "Database query failed. Try again",
+				Type:    "error",
+				Code:    503,
+			}, err
+		}
+	}
+
+	if order.Status != "pending" {
+		return &Message{
+			Message: "Please contact cx to cancel order",
+			Type:    "error",
+			Code:    400,
+		}, errors.New("order cannot be canceled")
+	}
+
+	order.Status = "cancelled"
+	err = UpdateOrderStatus(order)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Message{
+		Message: "Order cancelled successfully",
+		Type:    "success",
+		Code:    200,
+	}, nil
 }

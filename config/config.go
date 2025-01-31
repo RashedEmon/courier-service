@@ -11,10 +11,11 @@ import (
 )
 
 type Config struct {
-	Env   string `mapstructure:"ENV"`
-	Debug bool   `mapstructure:"DEBUG"`
-	ProjectRoot string `mapstructure:"PROJECTROOT"`
-	DB    struct {
+	Env          string `mapstructure:"ENV"`
+	Debug        bool   `mapstructure:"DEBUG"`
+	ProjectRoot  string `mapstructure:"PROJECTROOT"`
+	JwtSecretKey string `mapstructure:"JWTSECRETKEY"`
+	DB           struct {
 		Host     string `mapstructure:"HOST"`
 		Port     int    `mapstructure:"PORT"`
 		Name     string `mapstructure:"NAME"`

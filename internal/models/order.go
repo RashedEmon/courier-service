@@ -1,16 +1,8 @@
 package models
 
 import (
+	"courier-service/internal/constant"
 	"time"
-)
-
-type OrderStatus string
-
-const (
-	StatusPending   OrderStatus = "pending"
-	StatusShipped   OrderStatus = "shipped"
-	StatusDelivered OrderStatus = "delivered"
-	StatusCancelled OrderStatus = "cancelled"
 )
 
 type DeliveryOrder struct {
@@ -33,7 +25,7 @@ type DeliveryOrder struct {
 	ItemDescription    string
 	DeliveryFee        float64
 	CodFee             float64
-	Status             OrderStatus `gorm:"size:50"`
+	Status             constant.OrderStatus `gorm:"size:50"`
 	Discount           float64
 	IsArchived         bool
 	UserID             *uint

@@ -10,3 +10,8 @@ type User struct {
 	Password       string          `json:"password" binding:"required,min=6"`
 	DeliveryOrders []DeliveryOrder `gorm:"foreignKey:UserID"`
 }
+
+type SignUpRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=6"`
+}
